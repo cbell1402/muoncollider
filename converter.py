@@ -128,7 +128,7 @@ def processNodePhiCut(node,path):
             if jnode:
                 processNodePhiCut(jnode,path)
 
-def recurseThroughDaughterNodesAndRename(node, prefix="Ignore", filterOutNames=["supp"]):
+def recurseThroughDaughterNodesAndRename(node, prefix="Ignore", filterOutNames=["supp", "Cable"]):
     for idau in range(node.GetNdaughters()):
         tmpkid = node.GetDaughter(idau)
         recurseThroughDaughterNodesAndRename(tmpkid, prefix, filterOutNames)
@@ -143,90 +143,32 @@ def recurseThroughDaughterNodesAndRename(node, prefix="Ignore", filterOutNames=[
     if not node.IsVisible():
         node.SetName("Ignore")
 
-
-# def recurseThroughDaughterNodesAndEnforcePhi(node, phimin=0, phimax=90):
-#     for idau in range(node.GetNdaughters()):
-#         tmpkid = node.GetDaughter(idau)
-#         recurseThroughDaughterNodesAndEnforcePhi(node, phimin, phimax)
-
-#     ROOT.TGeoShape.IsInPhiRange()
-#     node.GetVolume().GetShape()
-#     node.GetVolume().ClearNodes()
-#     node.GetVolume().Clear()
+    if any([x in node.GetName() for x in filterOutNames]):
+        node.GetVolume().ClearNodes()
 
 
 processNodePhiCut(g.GetTopNode(),"")
-for i,thing in enumerate(list(vol.GetNodes())):
-    if "Vertex_6" in thing.GetName():
-        recurseThroughDaughterNodesAndRename(thing,"Vertex")
 
+for i,thing in enumerate(list(vol.GetNodes())):
+    print(thing.GetName())
+
+    for subsystem in [
+        "Vertex",
+        "InnerTrackers",
+        "OuterTrackers",
+        "Solenoid",
+        "ECalBarrel",
+        "ECalEndcap",
+        "HCalBarrel",
+        "HCalEndcaps",
+        "YokeBarrel",
+        "YokeEndcap",
+    ]:
+        if subsystem in thing.GetName():
+            recurseThroughDaughterNodesAndRename(thing,subsystem)
 
 
 g.Write()
 outputFile.Write()
 
-# # print(g.GetListOfNodes())
-# for i,thing in enumerate(list(g.GetListOfVolumes()) ):
-#     print(thing.GetName())
-#     # thing.Delete()
-#     if i==0:
-#         print(dir(thing))
-#         break
-#     pass
-
-
-# g.Dump()
-
-# def processNode(tmpnode):
-
-#     tmpName = f.GetCurrentNode().GetName()
-#     print(tmpName)
-#     print(f.GetCurrentNode().Dump())
-
-#     # Do some checks and change stuff.
-#     # Now I'm done with this node. Let's see what's next.
-
-#     # Check if there are any siblings.
-#     f.CdNext()
-#     if tmpName!=f.GetCurrentNode().GetName():
-#         # I found a new node to look at. Let's do it.
-#         pass
-#     else:
-#         print("blah")
-#         # This layer is exhausted. Time to move down.
-#         try:
-#             f.CdDown(6)
-#             processNode(f.GetCurrentNode())
-#         except:
-#             print("caused exception")
-#         # for i in range(100):
-#         #     try:
-#         #         f.CdDown(i)
-#         #         # found a down. process it.
-#         #         f.CdUp()
-#         #     except:
-#         #         break
-
-
-# Starting from the top
-
 outputFile.ls()
-
-# f.CdTop()
-# processNode(f.GetCurrentNode())
-
-
-
-# try:
-#     f.CdNext()
-# except:
-
-
-
-
-# # new_phi.Edit()
-# new_phi.SetPhiRange(phimin=0., phimax=270.)
-# print(new_phi.GetGDMLMatrix())
-# #print(type(new_phi))
-# #new_phi.CloseGeometry()
-# g.WriteObject(new_phi, "default")
