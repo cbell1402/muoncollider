@@ -1,6 +1,10 @@
 import ROOT
 import sys
 import shutil
+import math
+
+from array import array
+from ctypes import *
 
 try:
     input = raw_input
@@ -10,6 +14,10 @@ except:
 if len(sys.argv) < 3:
     print("Usage: converter.py input_file output_file")
     sys.exit(1)
+
+phimin = math.pi/2
+phimax = (2)*math.pi
+
 
 inputFile = sys.argv[1]
 outputFile = sys.argv[2]
@@ -28,7 +36,7 @@ g = outputFile.Get("default")
 
 
 ROOT.gGeoManager.DefaultColors()
-ROOT.gGeoManager.SetPhiRange(phimin=0., phimax=270.)
+# ROOT.gGeoManager.SetPhiRange(phimin=0., phimax=270.)
 # LL - Successfully changes phi range of object
 
 # g.Dump()
@@ -77,21 +85,80 @@ vol = g.GetMasterVolume()
 print(vol.GetNdaughters() )
 print(vol.GetNodes() )
 
-def recurseThroughDaughterNodesAndRename(node, newName = "IgnoreMe", editName=False):
+
+def getGlobalLocation(node):
+    print("in new function", node.GetName())
+    parentCoords=array('d', [-1,-1,-1])
+    node.LocalToMaster(node.GetVolume().GetShape().GetOrigin(), parentCoords)
+    print(parentCoords)
+    if node.GetMotherVolume() or False:
+        return getGlobalLocation(node.GetMotherVolume().GetNode(0))
+        # pass
+    else:
+        return parentCoords
+
+
+
+# https://root-forum.cern.ch/t/conversion-from-geant4-to-tgeo-classes-with-vgm/17316  ???? LL
+
+def processNodePhiCut(node,path):
+    myStr = ""
+    if not node:
+        return 0
+
+    nodeName = node.GetName()
+    path += f"/{nodeName}"
+
+    volume = node.GetVolume()
+    if volume:
+        shape = volume.GetShape()
+        if shape:
+            parentCoords=array('d', [-1,-1,-1])
+            g.cd(path)
+            trans = g.GetCurrentMatrix()
+            globalCoords=array('d', [-1,-1,-1])
+            trans.LocalToMaster(shape.GetOrigin(),globalCoords)
+            tv2 = ROOT.TVector2(globalCoords[0],globalCoords[1])
+            tmpphi = tv2.Phi()
+            if not (phimin<tmpphi<phimax):
+                print(f"removing {nodeName} with phi={tmpphi}")
+                volume.ClearNodes()
+    if node.GetNodes():
+        for jnode in list(node.GetNodes()):
+            if jnode:
+                processNodePhiCut(jnode,path)
+
+def recurseThroughDaughterNodesAndRename(node, prefix="Ignore", filterOutNames=["supp"]):
     for idau in range(node.GetNdaughters()):
         tmpkid = node.GetDaughter(idau)
-        recurseThroughDaughterNodesAndRename(tmpkid, newName, editName)
-    if editName:
-        node.SetName(newName + "_"+node.GetName())
-    else:
-        node.SetName(newName)
-    node.GetVolume().Clear()
+        recurseThroughDaughterNodesAndRename(tmpkid, prefix, filterOutNames)
+
+        if not prefix in node.GetName():
+            node.SetName(prefix + "_"+node.GetName())
+        print(node.GetName())
+
+        # node.SetName(prefix)
+        # node.GetVolume().ClearNodes()
+
+    if not node.IsVisible():
+        node.SetName("Ignore")
 
 
+# def recurseThroughDaughterNodesAndEnforcePhi(node, phimin=0, phimax=90):
+#     for idau in range(node.GetNdaughters()):
+#         tmpkid = node.GetDaughter(idau)
+#         recurseThroughDaughterNodesAndEnforcePhi(node, phimin, phimax)
+
+#     ROOT.TGeoShape.IsInPhiRange()
+#     node.GetVolume().GetShape()
+#     node.GetVolume().ClearNodes()
+#     node.GetVolume().Clear()
+
+
+processNodePhiCut(g.GetTopNode(),"")
 for i,thing in enumerate(list(vol.GetNodes())):
-    print(thing.GetName())
     if "Vertex_6" in thing.GetName():
-        recurseThroughDaughterNodesAndRename(thing,"Vertex",True)
+        recurseThroughDaughterNodesAndRename(thing,"Vertex")
 
 
 
